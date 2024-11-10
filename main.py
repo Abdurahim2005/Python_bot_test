@@ -182,7 +182,7 @@ def callback_query(call):
         os.remove("downloaded_video.mp4")
 
     except Exception as e:
-        bot.send_message(call.message.chat.id, f"Xatolik yuz berdi: {e}")
+        bot.send_message(call.message.chat.id, f"Xato, to'g'ri YouTube havolasini yuboring.")
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
     # Maxsus kodni tekshirish
