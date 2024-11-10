@@ -72,67 +72,107 @@ def show_user_data(message):
 
 # Callback handler
 
-def callback_query(call):
-    action = call.data  # `callback_data`ni to'g'ridan-to'g'ri olish
 
-    if action == "total_users":
-        total_users = len(load_data())  # Foydalanuvchilar soni
-        bot.send_message(call.message.chat.id, f"👬Foydalanuvchilar soni: {total_users}")
+def callback_query1(call):
+    # callback_data'ni ajratib olish
+    if '|' in call.data:  # Agar `callback_data` format_id va url bo'lsa
+        format_id, url = call.data.split('|')
+        bot.send_message(call.message.chat.id, f"{format_id} formatida yuklanmoqda...")
+        # Bu yerda yuklash funksiyasini chaqirishingiz mumkin
+        # Masalan: download_video(format_id, url)
 
-    elif action == "user_names":
-        data = load_data()
-        user_list = "\n".join([f"{index + 1}. {user['first_name']} (@{user.get('username', 'N/A')})" for index, user in enumerate(data.values())])
-        bot.send_message(call.message.chat.id, f"🙋‍♂️Foydalanuvchilar: \n{user_list}")
+    else:
+        # Aks holda, oddiy `action` qiymatlari bo'yicha qayta ishlash
+        action = call.data  
 
-    elif action == "user_details":
-        data = load_data()
-        user_details = "\n".join([f"____________________\n{index + 1}. ID: {user['user_id']}, \nName: {user['first_name']}, \nUsername: @{user.get('username', 'N/A')}, \nPhone: {user.get('phone_number', 'Not provided')}" for index, user in enumerate(data.values())])
-        bot.send_message(call.message.chat.id, f"🥸To'liq foydalanuvchi ma'lumotlari: \n{user_details}")
+        if action == "total_users":
+            total_users = len(load_data())  # Foydalanuvchilar soni
+            bot.send_message(call.message.chat.id, f"👬Foydalanuvchilar soni: {total_users}")
 
-    elif action == "other_info":
-        bot.send_message(call.message.chat.id, "Boshqa ma'lumot: Sizga kerakli boshqa ma'lumotni shu yerga kiritishingiz mumkin.")
+        elif action == "user_names":
+            data = load_data()
+            user_list = "\n".join([f"{index + 1}. {user['first_name']} (@{user.get('username', 'N/A')})" for index, user in enumerate(data.values())])
+            bot.send_message(call.message.chat.id, f"🙋‍♂️Foydalanuvchilar: \n{user_list}")
 
-# Foydalanuvchiga video formatlarini tanlash imkoniyati bilan miniaturani yuborish funksiyasi
+        elif action == "user_details":
+            data = load_data()
+            user_details = "\n".join([f"____________________\n{index + 1}. ID: {user['user_id']}, \nName: {user['first_name']}, \nUsername: @{user.get('username', 'N/A')}, \nPhone: {user.get('phone_number', 'Not provided')}" for index, user in enumerate(data.values())])
+            bot.send_message(call.message.chat.id, f"🥸To'liq foydalanuvchi ma'lumotlari: \n{user_details}")
+
+        elif action == "other_info":
+            bot.send_message(call.message.chat.id, "Boshqa ma'lumot: Sizga kerakli boshqa ma'lumotni shu yerga kiritishingiz mumkin.")
+
+# Foydalanuvchiga video formatlarini tanlash imkoniyati bilan 
 def display_video_options(message, url):
     try:
-        bot.send_message(message.chat.id, "Video ma'lumotlari olinmoqda, kuting...")
+        bot.send_message(message.chat.id, "⏳Video ma'lumotlari olinmoqda, kuting...")
 
         ydl_opts = {'format': 'best'}
         with YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
 
-        # Miniatura URL
+        # Miniatura URL va video nomi
         thumbnail_url = info.get("thumbnail")
+        video_title = info.get("title")
 
         # Mavjud formatlar
         formats = {}
-        for fmt in info['formats']:
-            # Faqat mp4 va 'height' qiymati mavjud bo'lgan formatlarni qo'shamiz
-            if fmt['ext'] == 'mp4' and 'height' in fmt and fmt['height'] is not None:
-                formats[str(fmt['height'])] = fmt['format_id']
+        format_details = []  # Hajmni ko'rsatish uchun matn shaklida yig'amiz
+        # Umumiy keng tarqalgan rezolyutsiyalar va ularga eng yaqin formatlar
+        desired_resolutions_map = {
+            '144': range(144, 256),
+            '240': range(256, 360),
+            '360': range(360, 480),
+            '480': range(480, 720),
+            '720': range(720, 1080),
+            '1080': range(1080, 2160)
+        }
 
-        # Tanlov uchun format tugmalari (1 qatorga 2 ta tugma)
+        # Har bir rezolyutsiya uchun eng birinchi mos formatni tanlash
+        for fmt in info['formats']:
+            if fmt['ext'] == 'mp4' and 'height' in fmt and fmt['height'] is not None:
+                height = fmt['height']
+                filesize = fmt.get('filesize')
+
+                # Umumiy rezolyutsiyalardan eng mosini tanlash
+                for common_res, res_range in desired_resolutions_map.items():
+                    if height in res_range and common_res not in formats:
+                        if filesize:  # Faqat hajmi mavjud bo'lgan formatlarni qo'shish
+                            formats[common_res] = fmt['format_id']
+                            size_mb = round(filesize / (1024 * 1024), 1)
+                            format_details.append(f"🚀 {common_res}p:  {size_mb}MB")
+                        break  # Birinchi mos topilgandan keyin chiqamiz
+
+        # Tanlov uchun format tugmalari yaratish
         markup = telebot.types.InlineKeyboardMarkup()
         buttons = []
-        for height in sorted(formats.keys(), reverse=True):
-            button = telebot.types.InlineKeyboardButton(f"{height}p", callback_data=f"{formats[height]}|{url}")
+
+        for height in sorted(formats.keys(), key=int):  # Kichikdan kattaga tartiblash
+            button = telebot.types.InlineKeyboardButton(f"📹{height}p", callback_data=f"{formats[height]}|{url}")
             buttons.append(button)
 
-            # Har ikkita tugmani bitta qatorga joylash
-            if len(buttons) == 2:
+            # Har uchta tugmani bitta qatorga joylash
+            if len(buttons) == 3:
                 markup.row(*buttons)
                 buttons = []
 
-        # Agar oxirgi tugma juft bo'lmasa, uni ham qatorga qo'shamiz
+        # Qolgan tugmalarni qo'shish
         if buttons:
             markup.row(*buttons)
 
-        # Foydalanuvchiga miniaturani va sifat tanlash variantlarini yuborish
-        bot.send_photo(message.chat.id, thumbnail_url, caption="Iltimos, yuklash uchun video sifatini tanlang:", reply_markup=markup)
+        # Formatlar va hajm haqida matnni yig'ish
+        format_text = "\n".join(format_details)
+
+        # Foydalanuvchiga miniaturani va format tugmalarini ko'rsatish
+        bot.send_photo(
+            message.chat.id,
+            thumbnail_url,
+            caption=f"📹 {video_title}\n\n{format_text}",
+            reply_markup=markup
+        )
 
     except Exception as e:
-        bot.send_message(message.chat.id, f"Xato, to'g'ri YouTube video havolasini yuboring.")
-
+        bot.send_message(message.chat.id, "Xato, to'g'ri YouTube video havolasini yuboring.")
 
 # Tanlangan format bo'yicha videoni yuklash va foydalanuvchiga yuborish funksiyasi
 # Foydalanuvchilarga qo'shimcha ma'lumotlarni ko'rsatish
@@ -158,7 +198,7 @@ def callback_query(call):
         bot.send_message(call.message.chat.id, "Boshqa ma'lumot: Sizga kerakli boshqa ma'lumotni shu yerga kiritishingiz mumkin.")
 
     else:
-        # Video yuklash uchun
+    # Video yuklash uchun
         format_id, url = action.split("|")
         try:
             bot.send_message(call.message.chat.id, "⏳Tanlangan formatda video yuklanmoqda, kuting...")
@@ -175,10 +215,10 @@ def callback_query(call):
 
             with YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
-
+            
             with open("downloaded_video.mp4", 'rb') as video_file:
-                bot.send_video(call.message.chat.id, video_file, caption="""🚫Hech qanday reklamalarsiz
-❌Hech qanday kanalga obuna bo'lish shart emas
+                bot.send_video(call.message.chat.id, video_file, caption=f"""🙅🏼‍♂️Hech qanday kanalga obuna bo'lish shart emas
+🤠NO ads
 ✅Shunchaki foydalaning.
 @Youtube_Down2_Bot""")
 
@@ -186,7 +226,6 @@ def callback_query(call):
 
         except Exception as e:
             bot.send_message(call.message.chat.id, f"🤕Xatolik yuz berdi:\n♻️Qayta urinib ko'ring yoki to'g'ri havoladan foydalaning")
-
 
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
