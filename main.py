@@ -122,9 +122,8 @@ def display_video_options(message, url):
         formats = {}
         for fmt in info['formats']:
             # Faqat mp4 va 'height' qiymati mavjud bo'lgan formatlarni qo'shamiz
-            if 'height' in fmt and fmt['height'] is not None and 'acodec' in fmt:
+            if fmt['ext'] == 'mp4' and 'height' in fmt and fmt['height'] is not None:
                 formats[str(fmt['height'])] = fmt['format_id']
-
 
         # Tanlov uchun format tugmalari (1 qatorga 2 ta tugma)
         markup = telebot.types.InlineKeyboardMarkup()
@@ -142,13 +141,11 @@ def display_video_options(message, url):
         if buttons:
             markup.row(*buttons)
 
-
         # Foydalanuvchiga miniaturani va sifat tanlash variantlarini yuborish
         bot.send_photo(message.chat.id, thumbnail_url, caption="Iltimos, yuklash uchun video sifatini tanlang:", reply_markup=markup)
 
-        except Exception as e:
-            bot.send_message(message.chat.id, f"Xatolik yuz berdi: {e}")
-
+    except Exception as e:
+        bot.send_message(message.chat.id, f"Xatolik yuz berdi: {e}")
 
 
 # Tanlangan format bo'yicha videoni yuklash va foydalanuvchiga yuborish funksiyasi
@@ -180,7 +177,7 @@ def callback_query(call):
         os.remove("downloaded_video.mp4")
 
     except Exception as e:
-        bot.send_message(call.message.chat.id, f"Xato, to'g'ri YouTube havolasini yuboring.")
+        bot.send_message(call.message.chat.id, f"Xatolik yuz berdi: {e}")
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
     # Maxsus kodni tekshirish
