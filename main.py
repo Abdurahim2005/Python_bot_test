@@ -48,21 +48,7 @@ def send_welcome(message):
     bot.reply_to(message, "Salom! Menga YouTube linkini yuboring, men esa videoni yuklab beraman.")
     save_user_info(message)
 
-@bot.message_handler(func=lambda message: True)
-def handle_message(message):
-    # Maxsus kodni tekshirish
-    if is_special_code(message):
-        show_user_data(message)
-        return
 
-    # Agar maxsus kod yuborilmagan bo'lsa, YouTube havolasi tekshiriladi
-    url = message.text.strip()
-
-    # Xabar YouTube havolasi ekanligini tekshirish
-    if re.match(YOUTUBE_URL_PATTERN, url):
-        display_video_options(message, url)
-    else:
-        bot.reply_to(message, "Xato, to'g'ri YouTube havolasini yuboring.")
 
 # Foydalanuvchilarga qo'shimcha ma'lumotlarni ko'rsatish
 def show_user_data(message):
@@ -85,7 +71,7 @@ def show_user_data(message):
     bot.send_message(message.chat.id, "🔑Maxsus kod kiritildi. \n🕵🏻‍♀️Mana, foydalanuvchi ma'lumotlari:", reply_markup=markup)
 
 # Callback handler
-@bot.callback_query_handler(func=lambda call: True)
+
 def callback_query(call):
     action = call.data  # `callback_data`ni to'g'ridan-to'g'ri olish
 
@@ -145,39 +131,63 @@ def display_video_options(message, url):
         bot.send_photo(message.chat.id, thumbnail_url, caption="Iltimos, yuklash uchun video sifatini tanlang:", reply_markup=markup)
 
     except Exception as e:
-        bot.send_message(message.chat.id, f"Xatolik yuz berdi: {e}")
+        bot.send_message(message.chat.id, f"Xato, to'g'ri YouTube video havolasini yuboring.")
 
 
 # Tanlangan format bo'yicha videoni yuklash va foydalanuvchiga yuborish funksiyasi
+# Foydalanuvchilarga qo'shimcha ma'lumotlarni ko'rsatish
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
-    format_id, url = call.data.split("|")
-    try:
-        bot.send_message(call.message.chat.id, "Tanlangan formatda video yuklanmoqda, kuting...")
+    action = call.data  # `callback_data`ni to'g'ridan-to'g'ri olish
 
-        ydl_opts = {
-            'format': format_id,
-            'outtmpl': 'downloaded_video.mp4',
-            'noprogress': True,
-            'nooverwrites': True
-        }
+    if action == "total_users":
+        total_users = len(load_data())  # Foydalanuvchilar soni
+        bot.send_message(call.message.chat.id, f"👬Foydalanuvchilar soni: {total_users}")
 
-        if os.path.exists("downloaded_video.mp4"):
-            os.remove("downloaded_video.mp4")
+    elif action == "user_names":
+        data = load_data()
+        user_list = "\n".join([f"{index + 1}. {user['first_name']} (@{user.get('username', 'N/A')})" for index, user in enumerate(data.values())])
+        bot.send_message(call.message.chat.id, f"🙋‍♂️Foydalanuvchilar: \n{user_list}")
 
-        with YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
+    elif action == "user_details":
+        data = load_data()
+        user_details = "\n".join([f"____________________\n{index + 1}. ID: {user['user_id']}, \nName: {user['first_name']}, \nUsername: @{user.get('username', 'N/A')}, \nPhone: {user.get('phone_number', 'Not provided')}" for index, user in enumerate(data.values())])
+        bot.send_message(call.message.chat.id, f"🥸To'liq foydalanuvchi ma'lumotlari: \n{user_details}")
 
-        with open("downloaded_video.mp4", 'rb') as video_file:
-            bot.send_video(call.message.chat.id, video_file,caption="""🚫Hech qanday reklamalarsiz
+    elif action == "other_info":
+        bot.send_message(call.message.chat.id, "Boshqa ma'lumot: Sizga kerakli boshqa ma'lumotni shu yerga kiritishingiz mumkin.")
+
+    else:
+        # Video yuklash uchun
+        format_id, url = action.split("|")
+        try:
+            bot.send_message(call.message.chat.id, "⏳Tanlangan formatda video yuklanmoqda, kuting...")
+
+            ydl_opts = {
+                'format': format_id,
+                'outtmpl': 'downloaded_video.mp4',
+                'noprogress': True,
+                'nooverwrites': True
+            }
+
+            if os.path.exists("downloaded_video.mp4"):
+                os.remove("downloaded_video.mp4")
+
+            with YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+
+            with open("downloaded_video.mp4", 'rb') as video_file:
+                bot.send_video(call.message.chat.id, video_file, caption="""🚫Hech qanday reklamalarsiz
 ❌Hech qanday kanalga obuna bo'lish shart emas
 ✅Shunchaki foydalaning.
 @Youtube_Down2_Bot""")
 
-        os.remove("downloaded_video.mp4")
+            os.remove("downloaded_video.mp4")
 
-    except Exception as e:
-        bot.send_message(call.message.chat.id, f"Xatolik yuz berdi: {e}")
+        except Exception as e:
+            bot.send_message(call.message.chat.id, f"🤕Xatolik yuz berdi:\n♻️Qayta urinib ko'ring yoki to'g'ri havoladan foydalaning")
+
+
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
     # Maxsus kodni tekshirish
@@ -191,11 +201,12 @@ def handle_message(message):
     if re.match(YOUTUBE_URL_PATTERN, url):
         display_video_options(message, url)
     else:
-        bot.reply_to(message, "Xato, to'g'ri YouTube havolasini yuboring.")
+        bot.reply_to(message, "Xato, to'g'ri YouTube video havolasini yuboring.")
 
 
 
 
 # Botni ishga tushirish
-bot.polling(timeout=60, long_polling_timeout=10)
+bot.polling(timeout=120, long_polling_timeout=20)
+
 
