@@ -146,10 +146,8 @@ def display_video_options(message, url):
         # Foydalanuvchiga miniaturani va sifat tanlash variantlarini yuborish
         bot.send_photo(message.chat.id, thumbnail_url, caption="Iltimos, yuklash uchun video sifatini tanlang:", reply_markup=markup)
 
-    except KeyError as e:
-    bot.send_message(message.chat.id, f"Xatolik: {e} - Ma'lumotlar olishda muammo yuz berdi.")
-    except Exception as e:
-        bot.send_message(message.chat.id, f"Xatolik yuz berdi: {e}")
+        except Exception as e:
+            bot.send_message(message.chat.id, f"Xatolik yuz berdi: {e}")
 
 
 
