@@ -90,20 +90,38 @@ def show_send_options(call):
     bot.send_message(call.message.chat.id, "🧐Xabarni kimga yubormoqchisiz?", reply_markup=markup)
 
 # Foydalanuvchini bloklash
+# Foydalanuvchini bloklash
 def block_user(message):
-    user_id = int(message.text)
+    user_input = message.text.strip()  # Foydalanuvchi tomonidan kiritilgan xabarni olamiz
+    if not user_input.isdigit():  # Agar xabar raqam bo'lmasa
+        bot.send_message(message.chat.id, "❗️Bu ID ga ega foydalanuvchi topilmadi.")
+        return
+
+    user_id = int(user_input)
     blocked_users = load_blocked_users()
-    if user_id not in blocked_users:
+    
+    if user_id == 1663567950:  # Admin ID'sini bloklashga urinishni tekshirish
+        bot.send_message(message.chat.id, "❗️Siz Adminni bloklay olmaysiz.")
+        bot.send_message(1663567950, f"❗️Sizni {message.chat.id} ID ga ega foydalanuvchi bloklashga harakat qildi\nUsername: @{bot.get_chat(message.chat.id).username}")
+        return
+    
+    if user_id in blocked_users:
+        bot.send_message(message.chat.id, f"❗️Foydalanuvchi {user_id} allaqachon bloklangan.")
+    else:
         blocked_users.append(user_id)
         save_blocked_users(blocked_users)
         bot.send_message(message.chat.id, f"✅ Foydalanuvchi {user_id} muvaffaqiyatli bloklandi.")
-    else:
-        bot.send_message(message.chat.id, f"❗️Foydalanuvchi {user_id} allaqachon bloklangan.")
 
 # Foydalanuvchini blokdan chiqarish
 def unblock_user(message):
-    user_id = int(message.text)
+    user_input = message.text.strip()  # Foydalanuvchi tomonidan kiritilgan xabarni olamiz
+    if not user_input.isdigit():  # Agar xabar raqam bo'lmasa
+        bot.send_message(message.chat.id, "❗️Bu ID ga ega foydalanuvchi topilmadi.")
+        return
+
+    user_id = int(user_input)
     blocked_users = load_blocked_users()
+    
     if user_id in blocked_users:
         blocked_users.remove(user_id)
         save_blocked_users(blocked_users)
